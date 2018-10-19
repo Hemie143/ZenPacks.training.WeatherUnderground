@@ -2,7 +2,7 @@
 
 # Logging
 import logging
-LOG = logging.getLogger('zen.WeatherUnderground')
+log = logging.getLogger('zen.WeatherUnderground')
 
 # stdlib Imports
 import json
@@ -10,7 +10,8 @@ import time
 
 # Twisted Imports
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web.client import getPage
+from twisted.web.client import getPage, Agent, readBody
+from twisted.internet import reactor
 
 # PythonCollector Imports
 from ZenPacks.zenoss.PythonCollector.datasources.PythonDataSource import (
@@ -46,15 +47,16 @@ class Alerts(PythonDataSourcePlugin):
 
         for datasource in config.datasources:
             try:
-                response = yield getPage(
+                agent = Agent(reactor)
+                d = yield agent.request('GET',
                     'http://api.wunderground.com/api/{api_key}/alerts{api_link}.json'
                     .format(
                         api_key=datasource.params['api_key'],
                         api_link=datasource.params['api_link']))
-
-                response = json.loads(response)
+                body = yield readBody(d)
+                response = json.loads(body)
             except Exception:
-                LOG.exception(
+                log.exception(
                     "%s: failed to get alerts data for %s",
                     config.id,
                     datasource.location_name)
@@ -110,7 +112,6 @@ class Conditions(PythonDataSourcePlugin):
         return {
             'api_key': context.zWundergroundAPIKey,
             'api_link': context.api_link,
-            'location_name': context.title,
             }
 
     @inlineCallbacks
@@ -119,18 +120,19 @@ class Conditions(PythonDataSourcePlugin):
 
         for datasource in config.datasources:
             try:
-                response = yield getPage(
+                agent = Agent(reactor)
+                d = yield agent.request('GET',
                     'http://api.wunderground.com/api/{api_key}/conditions{api_link}.json'
                     .format(
                         api_key=datasource.params['api_key'],
                         api_link=datasource.params['api_link']))
-
-                response = json.loads(response)
+                body = yield readBody(d)
+                response = json.loads(body)
             except Exception:
-                LOG.exception(
+                log.exception(
                     "%s: failed to get conditions data for %s",
                     config.id,
-                    datasource.location_name)
+                    datasource.datasource)
 
                 continue
 
